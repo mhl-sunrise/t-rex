@@ -137,7 +137,7 @@ body[data-state=title] #title,body[data-state=results] #results,body[data-state=
 <div id="cues" aria-hidden="true"></div>
 
 <header id="top" class="hud">
-  <div id="timer">2:00</div>
+  <div id="timer">2:30</div>
   <div class="prog" id="prog"><span class="lbl">Tear</span><div class="track"><div id="fill"></div><div id="mark"></div></div><span id="pct">0%</span></div>
   <div id="phase" class="lbl"></div>
 </header>
@@ -159,7 +159,7 @@ body[data-state=title] #title,body[data-state=results] #results,body[data-state=
   <div class="col">
     <div class="kicker">Containment hologram</div>
     <h1 class="logo">REX<br>BREACH</h1>
-    <p class="tag">You are the rex. Reach the glowing tear in <b>2:00</b>. Everything out here wants you dead.</p>
+    <p class="tag">You are the rex. Reach the glowing tear in <b>2:30</b>. Everything out here wants you dead.</p>
     <ol class="how" aria-label="How to play">
       <li><svg class="ic drag" viewBox="0 0 40 40" aria-hidden="true"><path class="arc" d="M9 31L31 9M24 9h7v7"/><g class="ph"><circle cx="14" cy="26" r="5"/><circle cx="14" cy="26" r="1.6"/></g></svg>
         <div><b id="h1">Drag anywhere to run</b><span id="h1s">He runs the way you drag. Drag further to run faster</span></div></li>
@@ -213,7 +213,7 @@ THREE.ColorManagement.legacyMode = false;
    Tuning. ponytail: phone feel is set by eye; tune these on a real device.
    ====================================================================== */
 const TUNE = {
-  round: 120,       // seconds to reach the tear
+  round: 150,       // seconds to reach the tear
   run: 7.2,         // top running speed (m/s)
   jump: 8.6,        // take-off speed (m/s): about 5 m of leap at full run
   gravity: 24,
@@ -685,10 +685,10 @@ function layoutCourse(rn) {
   acts.forEach((act, ai) => {
     for (const k of act) {
       const df = clamp((n++) / 11, 0, 1); let f;
-      if (k === 'gap') f = { len: R2(2.4, 3.0) + df * 1.1 };
-      else if (k === 'narrow') f = { len: R2(11, 14) + df * 5, hw: lerp(1.05, 0.72, df) };
-      else if (k === 'stones') { const c = 4 + Math.round(df * 2 + rn() * 0.6); f = { c, step: R2(5.0, 5.5) + df * 0.4, r: lerp(1.35, 1.0, df) }; /* a full-speed leap carries about 5.2 m */ f.len = (c + 1) * f.step; }
-      else if (k === 'crumble') { const c = 6 + Math.round(df * 3); f = { c, step: 2.25, delay: lerp(0.62, 0.36, df) }; f.len = (c + 1) * f.step; }
+      if (k === 'gap') f = { len: R2(2.0, 2.5) + df * 0.8 };
+      else if (k === 'narrow') f = { len: R2(11, 14) + df * 5, hw: lerp(1.3, 0.95, df) };
+      else if (k === 'stones') { const c = 4 + Math.round(df * 2 + rn() * 0.6); f = { c, step: R2(4.9, 5.3) + df * 0.3, r: lerp(1.6, 1.3, df) }; /* a full-speed leap carries about 5.2 m */ f.len = (c + 1) * f.step; }
+      else if (k === 'crumble') { const c = 6 + Math.round(df * 3); f = { c, step: 2.25, delay: lerp(0.85, 0.5, df) }; f.len = (c + 1) * f.step; }
       else if (k === 'geysers') f = { len: 17, c: 5, period: lerp(3.6, 3.0, df) };
       else if (k === 'jets') f = { len: 15, c: 3 + (df > 0.55 ? 1 : 0), period: lerp(3.2, 2.6, df) };
       else f = { len: 28, rise: 4.5, every: lerp(2.2, 1.5, df) };
@@ -771,8 +771,15 @@ function terrainH(x, z, I) {
 // ponytail: Phong, not Standard, for the rock: same diffuse look on matte basalt at about half the per-pixel cost on phones
 const terMat = new THREE.MeshPhongMaterial({ vertexColors: true, map: rockTex.map, normalMap: rockTex.normal, normalScale: new THREE.Vector2(1.5, 1.5), specular: 0x141416, shininess: 14 });
 // all rock is lit by the lava: warm bounce from below, and a red-hot band with glowing fractures where it meets the lava
-function patchRock(m) {
+function patchRock(m, walls) {
   m.onBeforeCompile = (sh) => {
+    if (walls) { // ponytail: the ribbon's UVs run along the course, so a wall facing along it would stretch 19 m of rock into one texel row
+      const tu = (c) => THREE.ShaderChunk[c].replace(/vUv/g, 'tUv');
+      sh.fragmentShader = 'vec2 tUv;\n' + sh.fragmentShader.replace('#include <normalmap_pars_fragment>', tu('normalmap_pars_fragment')).replace('#include <map_fragment>', tu('map_fragment')).replace('#include <normal_fragment_maps>', tu('normal_fragment_maps'))
+        .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+          { vec3 fn = normalize(cross(dFdx(vWp), dFdy(vWp))); float wk = smoothstep(0.55, 0.8, abs(fn.z)) * (1.0 - smoothstep(0.5, 0.8, abs(fn.y)));
+            tUv = vec2(vUv.x, vUv.y - vWp.y * 0.38 * wk); }`);
+    }
     sh.uniforms.uT = uT; sh.uniforms.tNoise = NOISE_U;
     sh.vertexShader = 'varying vec3 vWp, vWn;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       { vec4 w4 = vec4(transformed, 1.0); vec3 wn = objectNormal;
@@ -795,7 +802,7 @@ function patchRock(m) {
   };
   return m;
 }
-patchRock(terMat);
+patchRock(terMat, true); terMat.customProgramCacheKey = () => 'rock-walls'; // same patch source as the props, different shader
 // the ground is a ribbon that follows the course; heights are kept in (along, across) space for lookups
 function buildTerrain() {
   if (W.terMesh) { scene.remove(W.terMesh); W.terMesh.geometry.dispose(); }
@@ -867,10 +874,16 @@ const rockMat = patchRock(new THREE.MeshPhongMaterial({ color: 0x3a3330, map: ro
 const propGroup = new THREE.Group(); scene.add(propGroup);
 let rimRocks = null;
 // basalt column: hexagonal, rough sides, flat top you can stand on
+// a cylinder's UVs span 0..1 around and up whatever its size; rescale to metres so the rock grain matches the ground instead of streaking down tall sides
+function cylUV(g, radial, hseg, r, h) {
+  const uv = g.attributes.uv, side = (radial + 1) * (hseg + 1);
+  for (let i = 0; i < uv.count; i++) if (i < side) uv.setXY(i, uv.getX(i) * TAU * r * 0.38, uv.getY(i) * h * 0.38); else uv.setXY(i, uv.getX(i) * 2 * r * 0.38, uv.getY(i) * 2 * r * 0.38);
+  return g;
+}
 function column(r, top, seed) {
-  const h = top - LAVA_Y + 2, g = new THREE.CylinderGeometry(r * 0.97, r * 1.12, h, 6, 6), p = g.attributes.position;
+  const h = top - LAVA_Y + 2, g = cylUV(new THREE.CylinderGeometry(r * 0.97, r * 1.12, h, 6, 6), 6, 6, r, h), p = g.attributes.position;
   for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y < h / 2 - 0.01) { const k = 1 + (hash2(i, seed) - 0.5) * 0.14; p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); } }
-  g.translate(0, -h / 2, 0); g.computeVertexNormals(); return g;
+  g.translate(0, -h / 2, 0); const f = g.toNonIndexed(); f.computeVertexNormals(); return f; // flat facets: basalt columns have crisp edges
 }
 // flame plume: a cone of rolling fire, narrow at the vent, for geysers and fire jets; its length is the hazard's state
 const flameGeo = new THREE.CylinderGeometry(1, 0.22, 1, 18, 1, true).translate(0, 0.5, 0);
@@ -912,7 +925,7 @@ function buildProps(seed) {
     if (inFeat(s, 4) || W.cps.some((c) => Math.abs(c.s - s) < 6)) continue;
     pathAt(s, at); if (at.hw < 2.2) continue;
     const r = R2(0.4, 0.58), d = (rn() < 0.5 ? -1 : 1) * R2(0.4, at.hw - 1.1), x = at.x + at.nx * d, z = at.z + at.nz * d, h = R2(1.6, 2.8);
-    const g = new THREE.CylinderGeometry(r * 0.55, r, h, 7, 5), p = g.attributes.position;
+    const g = cylUV(new THREE.CylinderGeometry(r * 0.55, r, h, 7, 5), 7, 5, r * 0.8, h), p = g.attributes.position;
     for (let i = 0; i < p.count; i++) { const k = 1 + (hash2(i, s * 10 | 0) - 0.5) * 0.25; p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); }
     g.translate(0, h / 2 - 0.2, 0); g.computeVertexNormals();
     const m = new THREE.Mesh(g, rockMat); m.position.set(x, heightAt(x, z), z); m.rotation.y = R2(0, 6); m.castShadow = m.receiveShadow = true; propGroup.add(m);
@@ -922,7 +935,7 @@ function buildProps(seed) {
     if (f.k === 'stones' || f.k === 'crumble') { // columns standing in the lava
       for (let j = 0; j < f.c; j++) {
         const s = f.s + (j + 1) * f.step, side = j % 2 ? 1 : -1;
-        pathAt(s, at); const d = f.k === 'stones' ? side * R2(0.5, 1.4) * (j ? 1 : 0.4) : side * R2(0.2, 0.6);
+        pathAt(s, at); const d = f.k === 'stones' ? side * R2(0.3, 0.9) * (j ? 1 : 0.4) : side * R2(0.2, 0.6);
         const r = f.k === 'stones' ? f.r * R2(0.95, 1.1) : 1.18, x = at.x + at.nx * d, z = at.z + at.nz * d, top = at.y + (f.k === 'stones' ? R2(-0.2, 0.35) : 0);
         const mat = f.k === 'crumble' ? patchRock(rockMat.clone()) : rockMat; if (f.k === 'crumble') mat.emissive = new THREE.Color(0, 0, 0);
         const m = new THREE.Mesh(column(r, top, j + f.s * 3 | 0), mat); m.position.set(x, top, z); m.rotation.y = R2(0, 1); m.castShadow = m.receiveShadow = true; propGroup.add(m);
@@ -1107,11 +1120,9 @@ function patchRex(m) {
     sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = 'uniform vec3 uRim; uniform float uBuildY, uBuildOn, uHit; varying vec3 vWP;\n' + sh.fragmentShader
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (uBuildOn > 0.5 && vWP.y > uBuildY) discard;')
-      .replace('#include <dithering_fragment>', `float fv = 1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), fr = pow(fv, 5.0), fr3 = fv * fv * fv * fv;
-        // cinematic two-tone edge: cold moonlight along his back, lava glow along his belly and legs
+      .replace('#include <dithering_fragment>', `// lava light bouncing up onto his belly and legs, and the tear's cyan glow, both through his own skin colour (no edge outline)
         vec3 wn = inverseTransformDirection(normalize(vNormal), viewMatrix);
-        gl_FragColor.rgb += fr3 * (vec3(0.1, 0.17, 0.3) * smoothstep(-0.1, 0.9, wn.y) + vec3(0.95, 0.26, 0.05) * smoothstep(0.2, -0.9, wn.y) * 0.5) * 0.7;
-        gl_FragColor.rgb += uRim * fr + vec3(1.6, 0.5, 0.3) * uHit * (0.3 + fr);
+        gl_FragColor.rgb += diffuseColor.rgb * (vec3(1.0, 0.3, 0.07) * smoothstep(0.3, -0.9, wn.y) * 1.0 + uRim * 2.5) + vec3(1.6, 0.5, 0.3) * uHit * 0.35;
         float be = uBuildOn * (1.0 - smoothstep(0.0, 0.16, uBuildY - vWP.y)); gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.6, 3.5, 4.5), be);
         if (uBuildOn > 0.5) gl_FragColor.rgb += vec3(0.05, 0.25, 0.35) * (0.5 + 0.5 * sin(vWP.y * 60.0)) * uBuildOn;
         #include <dithering_fragment>`);
@@ -1322,7 +1333,7 @@ function meteorSim(dt) {
   if (!game.meteor) {
     game.meteorT -= dt;
     if (game.meteorT <= 0) {
-      game.meteorT = lerp(6.5, 3.2, diffNow()) + rr(-1, 1);
+      game.meteorT = lerp(8, 4.5, diffNow()) + rr(-1, 1);
       const lead = 1.15; let x = rex.x + rex.vx * lead + rr(-0.8, 0.8), z = rex.z + rex.vz * lead + rr(-0.8, 0.8);
       game.meteor = { x, z, t: 0, dur: 1.45, sx: x + rr(-14, 14), sy: 40, sz: z - rr(20, 34) }; AU.whistle([x, 0, z], 1.45);
     }
@@ -1370,7 +1381,7 @@ function hazardSim(dt) {
       for (let i = 0; i < 3; i++) { const u = rr(0, 1) * j.w, sp = rr(9, 13); fireP.spawn(j.x + j.dx * u * 0.15, j.y + rr(-0.2, 0.3), j.z + j.dz * u * 0.15, j.dx * sp + rr(-0.6, 0.6), rr(-0.2, 1.2), j.dz * sp + rr(-0.6, 0.6), rr(0.35, 0.6), rr(0.25, 0.45), rr(0.7, 1.1), C.jet0, C.fire1, 1, -0.1, 0.8); }
       game.fireLv = Math.max(game.fireLv || 0, 1); boomLight.position.set(j.x + j.dx * j.w * 0.5, j.y + 0.5, j.z + j.dz * j.w * 0.5); boomLight.intensity = Math.max(boomLight.intensity, 10);
     } else if (st === 'warn' && near && Math.random() < 0.6) fireP.spawn(j.x, j.y, j.z, j.dx * rr(1, 3), rr(0, 1), j.dz * rr(1, 3), 0.3, 0.06, 0.02, C.spark, C.spark1, 1, 0.5, 1);
-    if (st === 'burn' && t > 0.12) { const rx = rex.x - j.x, rz = rex.z - j.z, along = rx * j.dx + rz * j.dz, across = Math.abs(rx * j.dz - rz * j.dx); if (along > -0.5 && along < j.w && across < 0.95 && rex.y < j.y + 1.6) hitRex(rex.x + rex.tx, rex.z + rex.tz, 6.5, 4.5, 0.7, 'BURNED'); }
+    if (st === 'burn' && t > 0.12) { const rx = rex.x - j.x, rz = rex.z - j.z, along = rx * j.dx + rz * j.dz, across = Math.abs(rx * j.dz - rz * j.dx); if (along > -0.5 && along < j.w && across < 0.8 && rex.y < j.y + 1.6) hitRex(rex.x + rex.tx, rex.z + rex.tz, 6.5, 4.5, 0.7, 'BURNED'); }
   }
   for (const p of W.plats) { // bridge tiles: shake, then drop into the lava
     if (p.kind !== 'tile' || p.state === 'idle' || p.state === 'gone') continue;

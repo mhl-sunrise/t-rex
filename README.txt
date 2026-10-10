@@ -4,7 +4,7 @@ Upload index.html and rex.glb into one folder on an HTTPS site (Netlify Drop wor
 HTTPS matters: phones only share motion sensors with secure pages (used here to swing the camera).
 
 How to play: you are the rex. Drag anywhere to run, tap or flick to jump, tilt the phone to look around.
-Reach the glowing tear in 2:00. Lava sends you back to the last checkpoint.
+Reach the glowing tear in 2:30. Lava sends you back to the last checkpoint.
 Keyboard: WASD / arrows to run, Space to jump.
 
 Tuning: the TUNE block at the top of the script (time limit, run speed, jump, camera tilt).
